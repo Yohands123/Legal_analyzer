@@ -1,0 +1,57 @@
+services:
+  db:
+    image: postgres:16
+    environment:
+      POSTGRES_USER: risk
+      POSTGRES_PASSWORD: risk
+      POSTGRES_DB: riskdb
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+
+  redis:
+    image: redis:7
+    ports:
+      - "6379:6379"
+
+  api:
+    build: .
+    command: uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
+    environment:
+      DATABASE_URL: postgresql+psycopg://risk:risk@db:5432/riskdb
+      REDIS_URL: redis://redis:6379/0
+      CELERY_BROKER_URL: redis://redis:6379/0
+      CELERY_RESULT_BACKEND: redis://redis:6379/0
+      STORAGE_DIR: /app/storage
+      LLM_PROVIDER: ${LLM_PROVIDER:-heuristic}
+      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+    volumes:
+      - .:/app
+      - ./storage:/app/storage
+    ports:
+      - "8000:8000"
+    depends_on:
+      - db
+      - redis
+
+  worker:
+    build: .
+    command: celery -A app.tasks.celery_app worker --loglevel=INFO
+    environment:
+      DATABASE_URL: postgresql+psycopg://risk:risk@db:5432/riskdb
+      REDIS_URL: redis://redis:6379/0
+      CELERY_BROKER_URL: redis://redis:6379/0
+      CELERY_RESULT_BACKEND: redis://redis:6379/0
+      STORAGE_DIR: /app/storage
+      LLM_PROVIDER: ${LLM_PROVIDER:-heuristic}
+      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+    volumes:
+      - .:/app
+      - ./storage:/app/storage
+    depends_on:
+      - db
+      - redis
+
+volumes:
+  pgdata:
