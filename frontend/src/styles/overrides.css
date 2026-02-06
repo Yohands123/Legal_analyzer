@@ -1,0 +1,10 @@
+button,
+input,
+select,
+textarea {
+  font-family: inherit;
+}
+
+textarea {
+  min-height: 140px;
+}
